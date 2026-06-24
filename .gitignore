@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+venv/
+.env
+# Generated at runtime — don't commit large/binary artifacts
+data/app.db
+datasets/*.csv
+# Keep saved models OUT of git unless you deliberately pre-train and ship them
+models/*.keras
+models/*.pkl
+.DS_Store

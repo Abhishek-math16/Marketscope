@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Marketscope — Stock Trend Explorer</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet" />
+
+  <!-- Plotly gives us interactive, zoomable, pannable charts -->
+  <script src="https://cdn.plot.ly/plotly-2.32.0.min.js" charset="utf-8"></script>
+
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+</head>
+<body>
+
+<!-- ── Top bar ─────────────────────────────────────────── -->
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark">▮▮▯</span>
+    <span class="brand-name">Marketscope</span>
+  </div>
+  <div class="topbar-actions">
+    <button id="glossaryBtn" class="ghost-btn" type="button">Glossary</button>
+    <button id="themeBtn" class="ghost-btn" type="button" aria-label="Toggle theme">☾</button>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- ── Hero / search ─────────────────────────────────── -->
+  <section class="hero">
+    <h1>See where a stock has been<br>— and a model's best guess at where it's going.</h1>
+    <p class="lede">
+      Type a ticker. We pull ten years of history, draw the charts you can zoom
+      and explore, train a model on the data, and explain every term in plain
+      English. Built for learning, not for trading on.
+    </p>
+
+    <div class="search-row">
+      <input id="tickerInput" type="text" placeholder="AAPL,  RELIANCE.NS,  POWERGRID.NS …"
+             autocomplete="off" />
+      <button id="goBtn" type="button">Analyze</button>
+    </div>
+    <p class="hint">
+      Indian stocks need a suffix: <code>.NS</code> for NSE, <code>.BO</code> for BSE.
+      Try <button class="chip seed" data-t="AAPL">AAPL</button>
+      <button class="chip seed" data-t="MSFT">MSFT</button>
+      <button class="chip seed" data-t="RELIANCE.NS">RELIANCE.NS</button>
+      <button class="chip seed" data-t="TCS.NS">TCS.NS</button>
+    </p>
+
+    <div id="recentWrap" class="recent" hidden>
+      <span class="recent-label">Recently viewed</span>
+      <span id="recentChips"></span>
+    </div>
+  </section>
+
+  <!-- ── Loading ───────────────────────────────────────── -->
+  <div id="loading" class="loading" hidden>
+    <div class="spinner"></div>
+    <p id="loadingMsg">Downloading price history…</p>
+    <p class="loading-sub">The first run for a new ticker trains a model and can take 30–90 seconds. After that it's cached and instant.</p>
+  </div>
+
+  <!-- ── Error ─────────────────────────────────────────── -->
+  <div id="errorBox" class="errorbox" hidden></div>
+
+  <!-- ── Results ───────────────────────────────────────── -->
+  <section id="results" hidden>
+
+    <!-- Snapshot header -->
+    <div class="snapshot">
+      <div class="snap-main">
+        <span id="snapTicker" class="snap-ticker"></span>
+        <span id="snapPrice" class="snap-price"></span>
+        <span id="snapChange" class="snap-change"></span>
+      </div>
+      <div id="snapMeta" class="snap-meta"></div>
+    </div>
+
+    <!-- Plain-English signals -->
+    <div class="panel">
+      <div class="panel-head">
+        <h2>What the indicators are saying</h2>
+        <p class="panel-sub">A quick read in plain language. Hover any card for the why.</p>
+      </div>
+      <div id="signalGrid" class="signal-grid"></div>
+    </div>
+
+    <!-- Price + EMA, interactive -->
+    <div class="panel">
+      <div class="panel-head">
+        <h2>Price history <button class="info" data-term="ema">i</button></h2>
+        <div class="timeframe">
+          <button class="tf active" data-tf="daily">Daily</button>
+          <button class="tf" data-tf="weekly">Weekly</button>
+          <button class="tf" data-tf="monthly">Monthly</button>
+        </div>
+      </div>
+      <p class="panel-sub">Drag to pan, scroll or pinch to zoom, use the buttons on the chart to jump to 1M / 6M / 1Y, or drag the slider beneath it. Lines are moving averages that smooth out the trend.</p>
+      <div id="priceChart" class="chart"></div>
+    </div>
+
+    <!-- Momentum row -->
+    <div class="panel-row">
+      <div class="panel">
+        <div class="panel-head"><h2>Momentum — RSI <button class="info" data-term="rsi">i</button></h2></div>
+        <p class="panel-sub">Above 70 = possibly overbought, below 30 = possibly oversold.</p>
+        <div id="rsiChart" class="chart short"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h2>Momentum — MACD <button class="info" data-term="macd">i</button></h2></div>
+        <p class="panel-sub">Bars above zero point to upward momentum, below zero to downward.</p>
+        <div id="macdChart" class="chart short"></div>
+      </div>
+    </div>
+
+    <!-- Model accuracy -->
+    <div class="panel">
+      <div class="panel-head"><h2>How accurate is the model? <button class="info" data-term="metrics">i</button></h2></div>
+      <p class="panel-sub">We test the model on data it never trained on, then compare it to a simple "tomorrow will equal today" guess. Beating that baseline is the bar to clear.</p>
+      <div id="metricGrid" class="metric-grid"></div>
+      <div id="baselineNote" class="baseline-note"></div>
+      <div id="predChart" class="chart"></div>
+    </div>
+
+    <!-- Forecast -->
+    <div class="panel">
+      <div class="panel-head"><h2>30-day forecast <button class="info" data-term="forecast">i</button></h2></div>
+      <p class="panel-sub">The shaded cone is the model's uncertainty — it widens the further out we look, because each day's guess builds on the last.</p>
+      <div id="forecastChart" class="chart"></div>
+      <p class="disclaimer">
+        This is an educational model trained on past prices. It is <strong>not financial advice</strong>.
+        Real markets are driven by news, earnings and events no price model can see. Never trade on this.
+      </p>
+    </div>
+
+    <!-- Download -->
+    <div class="panel download-panel">
+      <div>
+        <h2>Download the data</h2>
+        <p class="panel-sub">Ten years of daily prices as a CSV you can open in Excel or Sheets.</p>
+      </div>
+      <a id="downloadLink" class="download-btn" href="#" download>Download CSV</a>
+    </div>
+
+  </section>
+</main>
+
+<footer class="foot">
+  Flask · TensorFlow/Keras · Yahoo Finance · Plotly · SQLite
+  <span class="tag">AIML Minor — Major Project</span>
+</footer>
+
+<!-- ── Glossary modal ────────────────────────────────────── -->
+<div id="glossary" class="modal" hidden>
+  <div class="modal-card">
+    <div class="modal-head">
+      <h2>Plain-English glossary</h2>
+      <button id="glossaryClose" class="ghost-btn" type="button">Close</button>
+    </div>
+    <div class="modal-body" id="glossaryBody"></div>
+  </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
