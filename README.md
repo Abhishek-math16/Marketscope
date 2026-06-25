@@ -1,3 +1,12 @@
+---
+title: Marketscope
+emoji: 📈
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+pinned: false
+app_port: 7860
+---
 # Marketscope — Stock Trend Explorer
 
 An educational web app that downloads ten years of stock history, draws fully
