@@ -246,5 +246,7 @@ def download_file(filename):
 
 
 if __name__ == "__main__":
-    # debug=True is fine for local development; turn it OFF in production.
-    app.run(debug=True, host="0.0.0.0", port=5000)
+    app.run(
+        host="0.0.0.0",
+        port=int(os.environ.get("PORT", 10000))
+    )
