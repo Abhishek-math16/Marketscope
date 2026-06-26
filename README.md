@@ -164,7 +164,7 @@ Now the deployed site loads those instantly instead of training on request.
 
 ---
 
-## 5. How the model works (for your report / viva)
+## 5. How the model works : 
 
 **The key idea:** the model predicts the *next day's return* (percentage change),
 not the next day's raw price. If you train on raw prices, the model learns the
